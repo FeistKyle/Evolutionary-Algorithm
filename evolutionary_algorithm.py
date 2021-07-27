@@ -1,20 +1,22 @@
 import subprocess
 import random
 
-#Run tracking algorithm n times with different values of z max/min
+#Run tracking algorithm n times with` different values of z max/min
 
 #Population size n 
 
-#Calculate efficiency
+#Function to calculate efficiency
 
 def marlin_eff(z):
+    
     subprocess.run('deactivate', shell=True)
+    subprocess.run('--MyCKFTracking.SeedFinding_ZMax=z', shell=True, input = z)
     subprocess.run('shifter --image gitlab-registry.cern.ch/berkeleylab/muoncollider/muoncollider-docker/mucoll-ilc-framework:1.5.1-centos8 /bin/bash', shell=True)
     subprocess.run('source LBLMuCWorkspace/setup.sh', shell=True)
     subprocess.run('Marlin ${MYBUILD}/packages/ACTSTracking/example/actsseed_steer.xml --global.LCIOInputFiles=muonGun_sim_MuColl_v1.slcio', shell=True)
     subprocess.run('source myenv/bin/activate', shell=True)
-    eff = subprocess.run('python eff_calc.py', shell=True, capture_output = True)
-    print(eff)
+    eff = subprocess.run('python eff_calc.py', shell=True, capture_output = True, text = True)
+    print(eff.stdout)
     return eff
     #deactivate, shifter --image gitlab-registry.cern.ch/berkeleylab/muoncollider/muoncollider-docker/mucoll-ilc-framework:1.5.1-centos8 /bin/bash, setup.sh,
     #Marlin ${MYBUILD}/packages/ACTSTracking/example/actsseed_steer.xml --global.LCIOInputFiles=/path/to/events.slcio,source myenv/bin/activate, eff_calc
