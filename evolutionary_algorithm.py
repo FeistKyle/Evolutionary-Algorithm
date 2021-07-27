@@ -1,9 +1,6 @@
 import subprocess
 import random
-import mcc.lcparquet as lcpq
-import data.dm as dm
-import matplotlib.pyplot as plt
-import dask.array as da
+
 
 #Run tracking algorithm n times with` different values of z max/min
 
@@ -14,14 +11,22 @@ import dask.array as da
 def marlin_eff(z):
     
     subprocess.run('deactivate', shell=True)
-    subprocess.run('--MyCKFTracking.SeedFinding_ZMax=z', shell=True, input = z)
     subprocess.run('shifter --image gitlab-registry.cern.ch/berkeleylab/muoncollider/muoncollider-docker/mucoll-ilc-framework:1.5.1-centos8 /bin/bash', shell=True)
     subprocess.run('source LBLMuCWorkspace/setup.sh', shell=True)
+    
+    arg = '--MyCKFTracking.SeedFinding_ZMax=' + str(z)
+    #print(arg)
+    subprocess.run(['Marlin', arg])
+
     subprocess.run('Marlin ${MYBUILD}/packages/ACTSTracking/example/actsseed_steer.xml --global.LCIOInputFiles=muonGun_sim_MuColl_v1.slcio', shell=True)
     subprocess.run('source myenv/bin/activate', shell=True)
     
     #Run eff_calc.py
-
+    import mcc.lcparquet as lcpq
+    import data.dm as dm
+    import matplotlib.pyplot as plt
+    import dask.array as da
+    
     data=dm.DataManager('mccplots/data.yaml')  
     # Load all necessary dataframes
     samples=['actsseed0']
