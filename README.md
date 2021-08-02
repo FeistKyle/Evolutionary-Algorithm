@@ -12,4 +12,6 @@ Run venv:
 
 source myenv/bin/activate
 
-Run python3 evo_algo.py
+Run:
+
+python3 evo_algo.py
