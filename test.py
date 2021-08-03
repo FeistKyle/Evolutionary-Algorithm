@@ -1,10 +1,12 @@
+import subprocess
+import random
+
 def marlin_eff(z):
     
     #shifter ='shifter --image gitlab-registry.cern.ch/berkeleylab/muoncollider/muoncollider-docker/mucoll-ilc-framework:1.5.1-centos8'
     #setup ='source LBLMuCWorkspace/setup.sh'
-    #arg = 'shifter --image gitlab-registry.cern.ch/berkeleylab/muoncollider/muoncollider-docker/mucoll-ilc-framework:1.5.1-centos8 Marlin --MyCKFTracking.SeedFinding_ZMax=' + str(z)
-    Marlin = 'shifter --image gitlab-registry.cern.ch/berkeleylab/muoncollider/muoncollider-docker/mucoll-ilc-framework:1.5.1-centos8 /bin/bash -c "source LBLMuCWorkspace/setup.sh && Marlin ${MYBUILD}/packages/ACTSTracking/example/actsseed_steer.xml --global.LCIOInputFiles=muonGun_sim_MuColl_v1.slcio"'
-    #delete ='rm data_actsckf'
+    z_change = '--MyCKFTracking.SeedFinding_ZMax=' + str(z)
+    Marlin = 'shifter --image gitlab-registry.cern.ch/berkeleylab/muoncollider/muoncollider-docker/mucoll-ilc-framework:1.5.1-centos8 /bin/bash -c \'source LBLMuCWorkspace/setup.sh LBLMuCWorkspace/build && Marlin ${MYBUILD}/packages/ACTSTracking/example/actsseed_steer.xml --global.LCIOInputFiles=muonGun_sim_MuColl_v1.slcio\''
 
     #cmd = arg + marlin
     print(Marlin)
