@@ -1,4 +1,5 @@
 import subprocess
+import multiprocessing
 import random
 
 
@@ -10,8 +11,8 @@ import random
 
 def marlin_eff(z):
     
-    #source myvenv/bin/activate
-    z_change = '--MyCKFTracking.SeedFinding_ZMax=' + str(z)
+    #source myvenv/bin/activate (activates virtual environment)
+    z_change = '--MyCKFTracking.SeedFinding_CollisionRegion=' + str(z)
     track_name = '--MyLCParquet.OutputDir=LBLMuCWorkspace/output/data_seedckf_Zmax{}'.format(z) 
     Marlin = 'shifter --image gitlab-registry.cern.ch/berkeleylab/muoncollider/muoncollider-docker/mucoll-ilc-framework:1.5.1-centos8 /bin/bash -c \'source LBLMuCWorkspace/setup.sh LBLMuCWorkspace/build && Marlin {} {} ${{MYBUILD}}/packages/ACTSTracking/example/actsseed_steer.xml --global.LCIOInputFiles=LBLMuCWorkspace/muonGun_sim_MuColl_v1.slcio\''.format(z_change, track_name)
 
@@ -48,7 +49,7 @@ def marlin_eff(z):
             tr,left_on=['evt','to'],right_on=['evt','colidx'])
 
     eff = len(tracks.index)/len(mu.index)
-    print(eff)
+    # number between 0 and 1 
     return eff
 
     #delete data from previous tracking, shifter --image gitlab-registry.cern.ch/berkeleylab/muoncollider/muoncollider-docker/mucoll-ilc-framework:1.5.1-centos8 /bin/bash, setup.sh,
@@ -61,15 +62,15 @@ def marlin_eff(z):
 #Generate z values
 z_values = []
 for z in range(5):
-    z_values.append(random.uniform(0,200))
+    z_values.append(random.uniform(0,10))
 
 #Generations 
-for i in range(10):
+for i in range(3):
 
     #Ranks z values with value for efficiency as a function of z
     rankedsolutions = []
     for z in z_values:
-    #z is an element of z_values which was 100 z values generated prior in a for loop
+    #z is an element of z_values which was some # z values generated prior in a for loop
         rankedsolutions.append((marlin_eff(z), z))
     rankedsolutions.sort()
     rankedsolutions.reverse()
