@@ -1,6 +1,7 @@
 import subprocess
-import multiprocessing
+from multiprocessing import Pool
 import random
+import matplotlib.pyplot as plt
 
 
 #Run tracking algorithm n times with different values of z max/min
@@ -12,6 +13,7 @@ import random
 def marlin_eff(z):
     
     #source myvenv/bin/activate (activates virtual environment)
+
     z_change = '--MyCKFTracking.SeedFinding_CollisionRegion=' + str(z)
     track_name = '--MyLCParquet.OutputDir=LBLMuCWorkspace/output/data_seedckf_Zmax{}'.format(z) 
     Marlin = 'shifter --image gitlab-registry.cern.ch/berkeleylab/muoncollider/muoncollider-docker/mucoll-ilc-framework:1.5.1-centos8 /bin/bash -c \'source LBLMuCWorkspace/setup.sh LBLMuCWorkspace/build && Marlin {} {} ${{MYBUILD}}/packages/ACTSTracking/example/actsseed_steer.xml --global.LCIOInputFiles=LBLMuCWorkspace/muonGun_sim_MuColl_v1.slcio\''.format(z_change, track_name)
@@ -50,7 +52,7 @@ def marlin_eff(z):
 
     eff = len(tracks.index)/len(mu.index)
     # number between 0 and 1 
-    return eff
+    return (eff, z)
 
     #delete data from previous tracking, shifter --image gitlab-registry.cern.ch/berkeleylab/muoncollider/muoncollider-docker/mucoll-ilc-framework:1.5.1-centos8 /bin/bash, setup.sh,
     #Marlin ${MYBUILD}/packages/ACTSTracking/example/actsseed_steer.xml --global.LCIOInputFiles=/path/to/events.slcio,source myenv/bin/activate, eff_calc
@@ -62,38 +64,53 @@ def marlin_eff(z):
 #Generate z values
 z_values = []
 for z in range(5):
-    z_values.append(random.uniform(0,10))
+    z_values.append(random.uniform(0,20))
 
+#print(z_values)
+
+plot_eff = []
 #Generations 
-for i in range(3):
+for i in range(5):
 
     #Ranks z values with value for efficiency as a function of z
-    rankedsolutions = []
-    for z in z_values:
     #z is an element of z_values which was some # z values generated prior in a for loop
-        rankedsolutions.append((marlin_eff(z), z))
-    rankedsolutions.sort()
-    rankedsolutions.reverse()
+
+    workers = Pool(10)
+    rankedsolutions = workers.map(marlin_eff, z_values)
+    rankedsolutions = sorted(rankedsolutions, key = lambda eff: eff[0], reverse = True)
     #At this point there's an ordered list of pairs of values each with an efficiency and a z value for that efficiency from highest to lowest
+
     print(f'=== gen {i} best solutions ===')
+
     #Prints generation number corresponding to ranked solutions and z values
-    print(rankedsolutions[0])
+    #print(rankedsolutions[0])
     #Prints first efficiency z value pair
-    if rankedsolutions[0][0] > .9:
-        break
-    #Terminates the loop if eff is found to be higher than .9
-    bestsolutions = rankedsolutions[:10]
-    #takes first 10 pairs in ranked solutions
+
+    del rankedsolutions[3:5]
+
+    rankedsolutions = sorted(rankedsolutions, key = lambda eff: eff[0], reverse = True)
+
     elements = []
-    #Creates an empty list called elements
-    for s in bestsolutions:
-        elements.append(s[0][1])
-    #Loops through 10 best solutions, adding the z value of each pair to the elements list
-    newGen = []
-    for _ in range(3):
-        e = random.choice(elements) * random.uniform(0.99, 1.01)
-    #Loops through 100 times, choosing a random z value from elements to mutate
-        newGen.append(e)
-    #Adds mutated elements to newGen which is the new generation 
-    z_values = newGen
-    #newGen becomes the new input for the next iteration i 
+    prob = .1
+    for s in rankedsolutions:
+        if random.random() < prob:
+                elements.append(s[1]*(1+random.gauss(0, .01)))
+        else:
+            elements.append(s[1])
+   
+    elements.append(random.uniform(0,10))
+    elements.append(random.uniform(0,10))
+
+    #makes list of best eff for the generation
+    
+    plot_eff.append(rankedsolutions[0][0])
+    
+
+    z_values = elements
+    #newGen becomes the new input for the next iteration i + 1
+
+#Plots
+plt.plot(list(range(len(plot_eff))), plot_eff)
+plt.show()
+plt.savefig('eff_gen.png')
+print(plot_eff)
