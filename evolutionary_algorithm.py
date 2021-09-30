@@ -2,7 +2,8 @@ import subprocess
 from multiprocessing import Pool
 import random
 import matplotlib.pyplot as plt
-
+import pandas as pd
+random.seed
 
 #Run tracking algorithm n times with different values of z max/min
 
@@ -57,18 +58,20 @@ def marlin_eff(z):
     #delete data from previous tracking, shifter --image gitlab-registry.cern.ch/berkeleylab/muoncollider/muoncollider-docker/mucoll-ilc-framework:1.5.1-centos8 /bin/bash, setup.sh,
     #Marlin ${MYBUILD}/packages/ACTSTracking/example/actsseed_steer.xml --global.LCIOInputFiles=/path/to/events.slcio,source myenv/bin/activate, eff_calc
     
-
-    #calculates eff for a given z
+    #calculates eff for a given coll region
     # number between 0 and 1 
 
-#Generate z values
+#Generate coll region values
 z_values = []
 for z in range(5):
     z_values.append(random.uniform(0,20))
 
 #print(z_values)
 
-plot_eff = []
+plot_maxeff = []
+plot_mineff= []
+plot_effcollregy= []
+plot_effcollregx= []
 #Generations 
 for i in range(5):
 
@@ -85,6 +88,12 @@ for i in range(5):
     #Prints generation number corresponding to ranked solutions and z values
     #print(rankedsolutions[0])
     #Prints first efficiency z value pair
+
+    for y in rankedsolutions:
+        plot_effcollregy.append(y[0])
+
+    for x in rankedsolutions:
+        plot_effcollregx.append(x[1])
 
     del rankedsolutions[3:5]
 
@@ -103,14 +112,34 @@ for i in range(5):
 
     #makes list of best eff for the generation
     
-    plot_eff.append(rankedsolutions[0][0])
-    
+    plot_maxeff.append(rankedsolutions[0][0])
+    plot_maxeff.append(rankedsolutions[2][0])
 
     z_values = elements
     #newGen becomes the new input for the next iteration i + 1
 
 #Plots
-plt.plot(list(range(len(plot_eff))), plot_eff)
+plt.plot(list(range(len(plot_maxeff))), plot_maxeff)
 plt.show()
-plt.savefig('eff_gen.png')
-print(plot_eff)
+plt.savefig('maxeff_gen.png')
+
+plt.plot(list(range(len(plot_mineff))), plot_mineff)
+plt.show()
+plt.savefig('mineff_gen.png')
+
+plt.plot(plot_effcollregy, plot_effcollregx)
+plt.show()
+plt.savefig('mineffcollreg.png')
+
+#Save data as excel
+dict1 = {'CollRegion_Val': plot_effcollregx, 'Eff_Val': plot_effcollregy}
+df1 = pd.DataFrame(dict1)
+df1.to_csv('Eff_CollRegionVal.csv') 
+
+dict2 = {'generation': list(range(len(plot_maxeff))), 'MaxEff_Val': plot_maxeff}
+df2 = pd.DataFrame(dict2)
+df2.to_csv('MaxEff_Gen.csv') 
+
+dict3 = {'generation': list(range(len(plot_mineff))), 'MinEff_Val': plot_mineff}
+df3 = pd.DataFrame(dict3)
+df3.to_csv('MinEff_Gen.csv') 
