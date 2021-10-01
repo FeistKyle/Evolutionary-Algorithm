@@ -3,8 +3,8 @@ from multiprocessing import Pool
 import random
 import matplotlib.pyplot as plt
 import pandas as pd
-random.seed
-
+import os.path
+random.seed(1)
 #Run tracking algorithm n times with different values of z max/min
 
 #Population size n 
@@ -12,19 +12,21 @@ random.seed
 #Function to calculate efficiency
 
 def marlin_eff(z):
-    
-    #source myvenv/bin/activate (activates virtual environment)
 
     z_change = '--MyCKFTracking.SeedFinding_CollisionRegion=' + str(z)
     track_name = '--MyLCParquet.OutputDir=LBLMuCWorkspace/output/data_seedckf_Zmax{}'.format(z) 
     Marlin = 'shifter --image gitlab-registry.cern.ch/berkeleylab/muoncollider/muoncollider-docker/mucoll-ilc-framework:1.5.1-centos8 /bin/bash -c \'source LBLMuCWorkspace/setup.sh LBLMuCWorkspace/build && Marlin {} {} ${{MYBUILD}}/packages/ACTSTracking/example/actsseed_steer.xml --global.LCIOInputFiles=LBLMuCWorkspace/muonGun_sim_MuColl_v1.slcio\''.format(z_change, track_name)
 
+    datafile = 'LBLMuCWorkspace/output/data_seedckf_Zmax' + str(z)
+    if not os.path.exists(datafile):
+        subprocess.run(Marlin, shell = True)
+
+    #source myvenv/bin/activate (activates virtual environment)
+
+    
     #cmd = arg + marlin
-    print(Marlin)
+    #print(Marlin)
     #print(str(setup) + str(arg) + str(Marlin))
-    #subprocess.run(delete, shell = True)
-    #subprocess.run(str(arg), shell = True)
-    subprocess.run(Marlin, shell = True)
 
     #import mcc.lcparquet as lcpq
     import mcc.lcparquet as mcpq
@@ -64,16 +66,17 @@ def marlin_eff(z):
 #Generate coll region values
 z_values = []
 for z in range(5):
-    z_values.append(random.uniform(0,20))
+    z_values.append(random.uniform(0,3))
 
 #print(z_values)
 
-plot_maxeff = []
+plot_maxeff= []
 plot_mineff= []
 plot_effcollregy= []
 plot_effcollregx= []
+
 #Generations 
-for i in range(5):
+for i in range(10):
 
     #Ranks z values with value for efficiency as a function of z
     #z is an element of z_values which was some # z values generated prior in a for loop
@@ -86,18 +89,22 @@ for i in range(5):
     print(f'=== gen {i} best solutions ===')
 
     #Prints generation number corresponding to ranked solutions and z values
-    #print(rankedsolutions[0])
+    print(rankedsolutions)
     #Prints first efficiency z value pair
 
+    ################plot#########################
     for y in rankedsolutions:
         plot_effcollregy.append(y[0])
 
     for x in rankedsolutions:
         plot_effcollregx.append(x[1])
+    
+    #makes list of best/worst eff for the generation
+    plot_maxeff.append(rankedsolutions[0][0])
+    plot_mineff.append(rankedsolutions[4][0])
+    #############################################
 
     del rankedsolutions[3:5]
-
-    rankedsolutions = sorted(rankedsolutions, key = lambda eff: eff[0], reverse = True)
 
     elements = []
     prob = .1
@@ -110,26 +117,35 @@ for i in range(5):
     elements.append(random.uniform(0,10))
     elements.append(random.uniform(0,10))
 
-    #makes list of best eff for the generation
-    
-    plot_maxeff.append(rankedsolutions[0][0])
-    plot_maxeff.append(rankedsolutions[2][0])
-
     z_values = elements
     #newGen becomes the new input for the next iteration i + 1
 
+#print(plot_maxeff)
+#print(plot_mineff)
+#print(list(range(len(plot_maxeff))))
+print(plot_effcollregx)
+print(plot_effcollregy)
+
+
 #Plots
+#Max eff
 plt.plot(list(range(len(plot_maxeff))), plot_maxeff)
-plt.show()
+plt.ylabel('Max Eff')
+plt.xlabel('Generation')
 plt.savefig('maxeff_gen.png')
-
+plt.clf()
+#Min eff
 plt.plot(list(range(len(plot_mineff))), plot_mineff)
-plt.show()
+plt.ylabel('Min Eff')
+plt.xlabel('Generation')
 plt.savefig('mineff_gen.png')
-
-plt.plot(plot_effcollregy, plot_effcollregx)
-plt.show()
-plt.savefig('mineffcollreg.png')
+plt.clf()
+#eff vs collision region
+plt.plot(plot_effcollregx, plot_effcollregy,'o')
+plt.ylabel('Eff')
+plt.xlabel('Collision Region (mm)')
+plt.savefig('effcollreg.png')
+plt.clf()
 
 #Save data as excel
 dict1 = {'CollRegion_Val': plot_effcollregx, 'Eff_Val': plot_effcollregy}
