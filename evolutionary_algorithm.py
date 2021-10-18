@@ -4,7 +4,7 @@ import random
 import matplotlib.pyplot as plt
 import pandas as pd
 import os.path
-random.seed(1)
+random.seed(7)
 #Run tracking algorithm n times with different values of z max/min
 
 #Population size n 
@@ -15,11 +15,19 @@ def marlin_eff(z):
 
     z_change = '--MyCKFTracking.SeedFinding_CollisionRegion=' + str(z)
     track_name = '--MyLCParquet.OutputDir=LBLMuCWorkspace/output/data_seedckf_Zmax{}'.format(z) 
+    track_name_FakeRate = '--MyLCParquet.OutputDir=LBLMuCWorkspace/output/data_seedckf_BIB{}'.format(z) 
+
     Marlin = 'shifter --image gitlab-registry.cern.ch/berkeleylab/muoncollider/muoncollider-docker/mucoll-ilc-framework:1.5.1-centos8 /bin/bash -c \'source LBLMuCWorkspace/setup.sh LBLMuCWorkspace/build && Marlin {} {} ${{MYBUILD}}/packages/ACTSTracking/example/actsseed_steer.xml --global.LCIOInputFiles=LBLMuCWorkspace/muonGun_sim_MuColl_v1.slcio\''.format(z_change, track_name)
+    Marlin_FakeRate = 'shifter --image gitlab-registry.cern.ch/berkeleylab/muoncollider/muoncollider-docker/mucoll-ilc-framework:1.5.1-centos8 /bin/bash -c \'source LBLMuCWorkspace/setup.sh LBLMuCWorkspace/build && Marlin {} {} ${{MYBUILD}}/packages/ACTSTracking/example/actsseed_steer.xml --global.LCIOInputFiles=LBLMuCWorkspace/BIB_010.slcio --global.MaxRecordNumber=2\''.format(z_change, track_name_FakeRate)
+
 
     datafile = 'LBLMuCWorkspace/output/data_seedckf_Zmax' + str(z)
     if not os.path.exists(datafile):
         subprocess.run(Marlin, shell = True)
+
+    datafile_FakeRate = 'LBLMuCWorkspace/output/data_seedckf_BIB' + str(z)
+    if not os.path.exists(datafile_FakeRate):
+        subprocess.run(Marlin_FakeRate, shell = True)
 
     #source myvenv/bin/activate (activates virtual environment)
 
@@ -53,9 +61,18 @@ def marlin_eff(z):
         mc2tr,left_on=['evt','colidx'],right_on=['evt','from']).merge(
             tr,left_on=['evt','to'],right_on=['evt','colidx'])
 
+
+    dataBIB = mcpq.LCParquet('LBLMuCWorkspace/output/data_seedckf_BIB'+str(z))
+    trBIB = dataBIB.load('track')
+
+    k = 1/1000
+    #matching each montecarlo particle to a track and subtracting a weighted value corresponding to the amount of fakes from the BIB
+    score = len(tracks.index)/len(mu.index) - k*len(trBIB.index)
     eff = len(tracks.index)/len(mu.index)
+    fakes = len(trBIB.index)
+
     # number between 0 and 1 
-    return (eff, z)
+    return ((score,eff,fakes), z)
 
     #delete data from previous tracking, shifter --image gitlab-registry.cern.ch/berkeleylab/muoncollider/muoncollider-docker/mucoll-ilc-framework:1.5.1-centos8 /bin/bash, setup.sh,
     #Marlin ${MYBUILD}/packages/ACTSTracking/example/actsseed_steer.xml --global.LCIOInputFiles=/path/to/events.slcio,source myenv/bin/activate, eff_calc
@@ -66,25 +83,34 @@ def marlin_eff(z):
 #Generate coll region values
 z_values = []
 for z in range(5):
-    z_values.append(random.uniform(0,3))
+    z_values.append(random.uniform(0,10))
 
 #print(z_values)
 
+#Plot data sets
+#score as a function of the generation
 plot_maxeff= []
 plot_mineff= []
-plot_effcollregy= []
+
+
 plot_effcollregx= []
+plot_effcollreg_eff= []
+plot_effcollreg_fakes= []
+plot_effcollreg_score= []
+
+plot_collreg = []
+plot_collregset = []
+
 
 #Generations 
-for i in range(10):
+for i in range(9):
 
-    #Ranks z values with value for efficiency as a function of z
-    #z is an element of z_values which was some # z values generated prior in a for loop
+    #Map the function marlin_eff to the collision region values
 
     workers = Pool(10)
     rankedsolutions = workers.map(marlin_eff, z_values)
-    rankedsolutions = sorted(rankedsolutions, key = lambda eff: eff[0], reverse = True)
-    #At this point there's an ordered list of pairs of values each with an efficiency and a z value for that efficiency from highest to lowest
+    rankedsolutions = sorted(rankedsolutions, key = lambda score: score[0][0], reverse = True) 
+    #At this point there's an ordered list of score, eff, and fakes along with the collision region value
 
     print(f'=== gen {i} best solutions ===')
 
@@ -94,14 +120,25 @@ for i in range(10):
 
     ################plot#########################
     for y in rankedsolutions:
-        plot_effcollregy.append(y[0])
+        plot_effcollreg_score.append(y[0][0])
+
+    for b in rankedsolutions:
+        plot_effcollreg_eff.append(b[0][1])
+    
+    for a in rankedsolutions:
+        plot_effcollreg_fakes.append(a[0][2])
 
     for x in rankedsolutions:
         plot_effcollregx.append(x[1])
+
+    for g in rankedsolutions:
+        plot_collreg.append(g[1])
     
+    plot_collregset.append(plot_collreg)
+    plot_collreg = []
     #makes list of best/worst eff for the generation
-    plot_maxeff.append(rankedsolutions[0][0])
-    plot_mineff.append(rankedsolutions[4][0])
+    plot_maxeff.append(rankedsolutions[0][0][0])
+    plot_mineff.append(rankedsolutions[4][0][0])
     #############################################
 
     del rankedsolutions[3:5]
@@ -123,32 +160,67 @@ for i in range(10):
 #print(plot_maxeff)
 #print(plot_mineff)
 #print(list(range(len(plot_maxeff))))
-print(plot_effcollregx)
-print(plot_effcollregy)
-
+#print(plot_effcollregx)
+#print(plot_effcollreg_score)
+#print(plot_collregset)
 
 #Plots
-#Max eff
-plt.plot(list(range(len(plot_maxeff))), plot_maxeff)
-plt.ylabel('Max Eff')
-plt.xlabel('Generation')
-plt.savefig('maxeff_gen.png')
-plt.clf()
-#Min eff
-plt.plot(list(range(len(plot_mineff))), plot_mineff)
-plt.ylabel('Min Eff')
-plt.xlabel('Generation')
-plt.savefig('mineff_gen.png')
-plt.clf()
-#eff vs collision region
-plt.plot(plot_effcollregx, plot_effcollregy,'o')
-plt.ylabel('Eff')
+
+# #Max eff
+
+# plt.scatter(list(range(len(plot_maxeff))), plot_maxeff)
+# plt.ylabel('Max Eff')
+# plt.xlabel('Generation')
+# plt.savefig('maxeff_gen.png')
+# plt.tight_layout()
+# plt.clf()
+
+# #Min eff
+# plt.scatter(list(range(len(plot_mineff))), plot_mineff)
+# plt.ylabel('Min Eff')
+# plt.xlabel('Generation')
+# plt.savefig('mineff_gen.png')
+#plt.tight_layout()
+# plt.clf()
+
+# #Collreg vs gen
+# n = 0
+# for e in plot_collregset:
+#     n += 1 
+#     for h in e:
+#         plt.scatter(n, h)
+#         plt.ylabel('Collision Region')
+#         plt.xlabel('Generation')
+# plt.savefig('collreg_gen.png')
+#plt.tight_layout()
+# plt.clf()
+
+#score vs collision region
+plt.plot(plot_effcollregx, plot_effcollreg_score,'o')
+plt.ylabel('Score')
 plt.xlabel('Collision Region (mm)')
-plt.savefig('effcollreg.png')
-plt.clf()
+plt.savefig('effcollregscore.png')
+plt.tight_layout()
+#plt.clf()
+
+#eff vs collision region
+# plt.plot(plot_effcollregx, plot_effcollreg_eff,'o')
+# plt.ylabel('Eff')
+# plt.xlabel('Collision Region (mm)')
+# plt.savefig('effcollregeff.png')
+# plt.tight_layout()
+# plt.clf()
+
+# #fakes vs collision region
+# plt.plot(plot_effcollregx, plot_effcollreg_fakes,'o')
+# plt.ylabel('fakes')
+# plt.xlabel('Collision Region (mm)')
+# plt.savefig('effcollregfakes.png')
+# plt.tight_layout()
+# plt.clf()
 
 #Save data as excel
-dict1 = {'CollRegion_Val': plot_effcollregx, 'Eff_Val': plot_effcollregy}
+dict1 = {'CollRegion_Val': plot_effcollregx, 'Eff_Val': plot_effcollreg_score}
 df1 = pd.DataFrame(dict1)
 df1.to_csv('Eff_CollRegionVal.csv') 
 
